@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/http3"
@@ -33,14 +32,15 @@ func AddRootCA(certPool *x509.CertPool) {
 func main() {
 	// verbose := flag.Bool("v", false, "verbose")
 	quiet := flag.Bool("q", false, "don't print the data")
-	keyLogFile := flag.String("keylog", "", "key log file")
+	keyLogFile := flag.String("keylog", "", "key log file") // uh questa potrebbe essere la roba in formato NSS che voglionp
 	insecure := flag.Bool("insecure", false, "skip certificate verification")
 	enableQlog := flag.Bool("qlog", false, "output a qlog (in the same directory)")
 	flag.Parse()
 	urls := flag.Args()
-
+	fmt.Print(keyLogFile)
 	var keyLog io.Writer
 	if len(*keyLogFile) > 0 {
+		fmt.Print("siamo quaaaa")
 		f, err := os.Create(*keyLogFile)
 		if err != nil {
 			log.Fatal(err)
@@ -80,31 +80,21 @@ func main() {
 		Transport: roundTripper,
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(urls))
-
-	for _, addr := range urls {
-		fmt.Printf("GET %s", addr)
-		go func(addr string) {
-			rsp, err := hclient.Get(addr)
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Printf("Got response for %s: %#v", addr, rsp)
-
-			body := &bytes.Buffer{}
-			_, err = io.Copy(body, rsp.Body)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if *quiet {
-				fmt.Printf("Response Body: %d bytes", body.Len())
-			} else {
-				fmt.Printf("Response Body:")
-				fmt.Printf("%s", body.Bytes())
-			}
-			wg.Done()
-		}(addr)
+	rsp, err := hclient.Get(urls[0])
+	if err != nil {
+		log.Fatal(err)
 	}
-	wg.Wait()
+	fmt.Printf("Got response for %s: %#v", urls[0], rsp)
+
+	body := &bytes.Buffer{}
+	_, err = io.Copy(body, rsp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if *quiet {
+		fmt.Printf("Response Body: %d bytes", body.Len())
+	} else {
+		fmt.Printf("Response Body:")
+		fmt.Printf("%s", body.Bytes())
+	}
 }
