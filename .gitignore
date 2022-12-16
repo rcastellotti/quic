@@ -1,4 +1,5 @@
 **.qlog
+**.log
 priv.key
 ca.pem
 cert.pem

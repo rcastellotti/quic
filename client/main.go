@@ -19,46 +19,34 @@ import (
 	"github.com/rcastellotti/quic-project/utils"
 )
 
-func AddRootCA(certPool *x509.CertPool) {
-	caCertPath := "../ca.pem"
-	caCertRaw, err := os.ReadFile(caCertPath)
-	if err != nil {
-		panic(err)
-	}
-	if ok := certPool.AppendCertsFromPEM(caCertRaw); !ok {
-		panic("Could not add root ceritificate to pool.")
-	}
-}
 func main() {
-	// verbose := flag.Bool("v", false, "verbose")
-	quiet := flag.Bool("q", false, "don't print the data")
-	keyLogFile := flag.String("keylog", "", "key log file") // uh questa potrebbe essere la roba in formato NSS che voglionp
+	SSLKEYLOGFILE := os.Getenv("SSLKEYLOGFILE")
+	QLOGDIR := os.Getenv("QLOGDIR")
+
 	insecure := flag.Bool("insecure", false, "skip certificate verification")
-	enableQlog := flag.Bool("qlog", false, "output a qlog (in the same directory)")
+	_, enableQlog := os.LookupEnv("QLOGDIR")
+
 	flag.Parse()
 	urls := flag.Args()
-	fmt.Print(keyLogFile)
+	// i think i can make this better
 	var keyLog io.Writer
-	if len(*keyLogFile) > 0 {
-		fmt.Print("siamo quaaaa")
-		f, err := os.Create(*keyLogFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-		keyLog = f
+	f, err := os.Create(SSLKEYLOGFILE)
+	if err != nil {
+		log.Fatal(err)
 	}
+	defer f.Close()
+	keyLog = f
 
 	pool, err := x509.SystemCertPool()
 	if err != nil {
 		log.Fatal(err)
 	}
-	AddRootCA(pool)
+	utils.AddRootCA(pool)
 
 	var qconf quic.Config
-	if *enableQlog {
+	if enableQlog {
 		qconf.Tracer = qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
-			filename := fmt.Sprintf("client_%x.qlog", connID)
+			filename := fmt.Sprintf(QLOGDIR+"/client_%x.qlog", connID)
 			f, err := os.Create(filename)
 			if err != nil {
 				log.Fatal(err)
@@ -91,10 +79,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if *quiet {
-		fmt.Printf("Response Body: %d bytes", body.Len())
-	} else {
-		fmt.Printf("Response Body:")
-		fmt.Printf("%s", body.Bytes())
-	}
+	fmt.Printf("Response Body:")
+	fmt.Printf("%s", body.Bytes())
 }

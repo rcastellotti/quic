@@ -16,7 +16,9 @@ openssl x509 -req -sha256 -days 3650 \
   -in cert.csr \
   -out cert.pem \
   -CA ca.pem -CAkey ca.key -CAcreateserial \
-  -extfile <(printf "subjectAltName=DNS:server")
+  -extfile <(printf "subjectAltName=DNS:server,DNS:localhost,IP:127.0.0.1") \
+
+
 
 # debug output the certificate
 openssl x509 -noout -text -in cert.pem

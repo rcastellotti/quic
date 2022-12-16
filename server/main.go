@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"os"
 
-	_ "net/http/pprof"
-
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/http3"
 	"github.com/lucas-clemente/quic-go/logging"
@@ -19,26 +17,34 @@ import (
 )
 
 func setupHandler(www string) http.Handler {
+	fmt.Print(http.Dir(www))
 	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir(www)))
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Welcome, random ACN student :)\n"))
 	})
+
 	return mux
 }
 
 func main() {
+	SERVERNAME := os.Getenv("SERVERNAME")
+	PORT := os.Getenv("PORT")
+	CERTS := os.Getenv("CERTS")
+	QLOGDIR := os.Getenv("QLOGDIR")
+	WWW := os.Getenv("WWW")
 
-	www := flag.String("www", "", "www data")
-	enableQlog := flag.Bool("qlog", false, "output a qlog (in the same directory)")
+	serverAndPort := fmt.Sprintf(SERVERNAME + ":" + PORT)
+	_, enableQlog := os.LookupEnv("QLOGDIR")
 	flag.Parse()
 
-	handler := setupHandler(*www)
+	handler := setupHandler(WWW)
 	quicConf := &quic.Config{}
 
-	if *enableQlog {
+	if enableQlog {
 		quicConf.Tracer = qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
-			filename := fmt.Sprintf("server_%x.qlog", connID)
+			filename := fmt.Sprintf(QLOGDIR+"/server_%x.qlog", connID)
 			f, err := os.Create(filename)
 			if err != nil {
 				log.Fatal(err)
@@ -48,12 +54,11 @@ func main() {
 		})
 	}
 
-	certFile := "../cert.pem"
-	keyFile := "../priv.key"
-
+	certFile := fmt.Sprintf(CERTS + "/cert.pem")
+	keyFile := fmt.Sprintf(CERTS + "/priv.key")
 	server := http3.Server{
 		Handler:    handler,
-		Addr:       "server:4433",
+		Addr:       serverAndPort,
 		QuicConfig: quicConf,
 	}
 	err := server.ListenAndServeTLS(certFile, keyFile)
